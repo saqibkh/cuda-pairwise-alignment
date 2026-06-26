@@ -1,0 +1,63 @@
+# =============================================================================
+#  .gitignore -- files that are GENERATED and must never be committed.
+#  Source, build scripts, project files, and docs ARE committed; everything a
+#  build produces is not.
+#
+#  GITIGNORE SYNTAX NOTE: '#' starts a comment ONLY when it is the FIRST
+#  character of a line. There is NO support for trailing/inline comments -- a
+#  '#' in the middle of a line is a literal pattern character. So every comment
+#  in this file lives on its own line, never after a pattern.
+# =============================================================================
+
+# ---- Our own build output directories ----
+# (the bare-nvcc scripts emit demo.exe / verify.exe here)
+build/
+bin/
+
+# ---- CMake build trees ----
+build_cmake/
+# CLion / VS-CMake style out-of-source trees
+cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+CMakeUserPresets.json
+
+# ---- Visual Studio / MSBuild ----
+# IDE per-user cache
+.vs/
+# the .sln OutDir/IntDir (x64\Debug, x64\Release, x64\<cfg>\obj)
+/x64/
+# per-user project settings (*.vcxproj.user)
+*.user
+# nvcc "--keep" intermediate dir, created at the PROJECT ROOT and named
+# <ProjectName-prefix>.<GUID-prefix>, e.g. CudaPair.B7A3C1E2
+CudaPair.*/
+*.VC.db
+*.VC.opendb
+
+# ---- Compiled objects / binaries / libraries ----
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.iobj
+*.ipdb
+
+# ---- CUDA intermediates (belt-and-suspenders, in case a keep-dir is missed) ----
+*.ptx
+*.cubin
+*.fatbin
+*.fatbin.c
+*.cudafe1.*
+*.module_id
+tmpxft_*
+
+# ---- Editor / OS noise ----
+*.swp
+*~
+.DS_Store
+Thumbs.db

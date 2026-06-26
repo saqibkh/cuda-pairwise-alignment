@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ==========================================================================
+     CudaPairwiseAlignment.vcxproj
+     =========================================================================
+     Visual Studio project that builds the DEMO executable from all of the
+     project's source files, with full CUDA support.
+
+     HOW A CUDA VISUAL STUDIO PROJECT IS WIRED UP (the parts that matter):
+       * .cpp files are compiled by the normal C++ compiler  -> <ClCompile>
+       * .cu  files are compiled by nvcc                      -> <CudaCompile>
+       * The two "Import ...CUDA 13.3.props/.targets" lines below are what teach
+         MSBuild about the <CudaCompile> item type in the first place. They come
+         from the CUDA Toolkit's Visual Studio integration, installed at:
+           <VS>\MSBuild\Microsoft\VC\v180\BuildCustomizations\CUDA 13.3.*
+         If you installed a DIFFERENT CUDA version, change "13.3" to match in
+         BOTH import lines (and the toolkit must include the VS integration).
+       * <CodeGeneration>compute_75,sm_75</CodeGeneration> targets the RTX 2080
+         (Turing = compute capability 7.5). For YOUR GPU, change 75 to your
+         card's capability (e.g. sm_86 for Ampere RTX 30xx, sm_89 for Ada RTX
+         40xx). `nvidia-smi` + a web search, or the demo's device-info print,
+         tells you the number.
+
+     This project intentionally builds only the DEMO (demo/demo_main.cpp). The
+     separate test harness (tests/verify_main.cpp) has its own main() and is
+     built via CMake or the scripts in scripts/ (two main() functions cannot
+     live in one executable).
+     ====================================================================== -->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!-- The configuration x platform combinations this project offers. We provide
+       the usual Debug and Release, both 64-bit (CUDA is 64-bit only). -->
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <!-- Project-wide identity. The GUID uniquely names this project to the .sln.
+       WindowsTargetPlatformVersion "10.0" means "use the newest Windows SDK you
+       have installed", which avoids hard-coding an SDK version. -->
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <ProjectGuid>{B7A3C1E2-5D84-4F96-9A1B-2C3D4E5F6A7B}</ProjectGuid>
+    <RootNamespace>CudaPairwiseAlignment</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+
+  <!-- Pulls in MSBuild's default C++ rules. Must come before the Configuration
+       property groups that set ConfigurationType/PlatformToolset. -->
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <!-- Per-configuration settings. ConfigurationType=Application -> build an .exe.
+       PlatformToolset=v145 is the Visual Studio 2026 (v18) toolset. For VS 2022
+       use v143; for VS 2019 use v142. -->
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+
+  <!-- Core C++ build rules. -->
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <!-- *** CUDA integration, part 1 of 2: the .props ***
+       This teaches MSBuild what a <CudaCompile> item is and where nvcc lives. -->
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 13.3.props" />
+  </ImportGroup>
+
+  <!-- Picks up the user's per-machine C++ settings if present (harmless if not). -->
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <!-- Output/intermediate folders: e.g. x64\Release\ and x64\Release\obj\.
+       Both are listed in .gitignore so build artifacts never get committed. -->
+  <PropertyGroup>
+    <OutDir>$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(Platform)\$(Configuration)\obj\</IntDir>
+  </PropertyGroup>
+
+  <!-- ===================================================================== -->
+  <!-- Compiler / linker options shared by all source files, per config.     -->
+  <!-- ===================================================================== -->
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <!-- $(ProjectDir)include lets every file find the project headers. -->
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <!-- cudart.lib = the CUDA runtime import library (cudaMalloc, etc.). The
+           CUDA .targets already add its directory to the search path; we just
+           name the lib. -->
+      <AdditionalDependencies>cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <!-- Generate device code for compute capability 7.5 (RTX 2080 / Turing). -->
+      <CodeGeneration>compute_75,sm_75</CodeGeneration>
+      <!-- -G embeds device-side debug info so you can step through kernels. -->
+      <GPUDebugInfo>true</GPUDebugInfo>
+      <Include>$(ProjectDir)include</Include>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <LanguageStandard>stdcpp14</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>cudart.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+      <CodeGeneration>compute_75,sm_75</CodeGeneration>
+      <Include>$(ProjectDir)include</Include>
+    </CudaCompile>
+  </ItemDefinitionGroup>
+
+  <!-- ===================================================================== -->
+  <!-- The actual source files.                                              -->
+  <!--   <ClCompile>   -> host C++ (.cpp), compiled by cl.exe                -->
+  <!--   <CudaCompile> -> device C++ (.cu), compiled by nvcc                 -->
+  <!--   <ClInclude>   -> headers (no compilation; listed for the IDE tree)  -->
+  <!-- ===================================================================== -->
+  <ItemGroup>
+    <ClCompile Include="src\alignment_common.cpp" />
+    <ClCompile Include="src\cpu_reference.cpp" />
+    <ClCompile Include="demo\demo_main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\gpu_wavefront.cu" />
+    <CudaCompile Include="src\gpu_batched.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\alignment_common.h" />
+    <ClInclude Include="include\cpu_reference.h" />
+    <ClInclude Include="include\cuda_utils.cuh" />
+    <ClInclude Include="include\gpu_wavefront.cuh" />
+    <ClInclude Include="include\gpu_batched.cuh" />
+  </ItemGroup>
+
+  <!-- Core C++ build targets. -->
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <!-- *** CUDA integration, part 2 of 2: the .targets ***
+       This actually invokes nvcc on the <CudaCompile> items during the build. -->
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 13.3.targets" />
+  </ImportGroup>
+</Project>
